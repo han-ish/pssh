@@ -14,7 +14,7 @@ This project requires only pexpect module to run.
 Added the requirement.txt
 
 ```
-from psession import Session
+from pssh import Session
 
 client = Session("foo", "s3cr3t", "192.168.50.100")
 stdout = client.exec_command("ls -l")
@@ -23,13 +23,12 @@ print(stdout)
 
 ### Installing
 
-A step by step series of examples that tell you how to get a development env running
+Use a virtualenv whenever possible :)
 
 
 ```
 virtualenv -p python2 venv
-cd venv/bin/
-source activate
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 

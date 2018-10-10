@@ -1,8 +1,14 @@
 import pexpect
 import uuid
 import logging
+import os
 
 
+FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+path = os.path.dirname(os.path.abspath(__file__))
+file_ = os.path.join(path, os.path.basename(__file__))
+filename = "{}.log".format(os.path.splitext(file_)[0])
+logging.basicConfig(filename=filename, mode='w', format=FORMAT)
 logger = logging.getLogger(__name__)
 
 
@@ -27,9 +33,18 @@ class Session(object):
         self.login()
 
     def login(self):
+        self.expected_at_login = ['Are you sure you want to continue connecting', '.*assword:', pexpect.EOF]
         self.session = pexpect.spawn("ssh {}@{}".format(self.username, self.hostname))
-        self.session.expect('.*assword:')
-        self.session.sendline(self.password)
+
+        index = self.session.expect(self.expected_at_login)
+        # accept the remote key
+        if index == 0:
+            self.session.sendline("yes")
+            index = self.session.expect(self.expected_at_login)
+        if index == 1:
+            self.session.sendline(self.password)
+        if index == 2:
+            raise ValueError("Failed to login")
 
         # for logging in and reading the buffer
         self.session.expect([r'.*\$ ', r'.*\# ', pexpect.TIMEOUT, pexpect.EOF], timeout=2)
@@ -44,12 +59,17 @@ class Session(object):
         # the PS1 while setting and when getting the prompt
         self.session.expect_exact(self.prompt)
         self.session.expect_exact(self.prompt)
+        self.session.sendline('alias ls="ls -1"'.format(self.prompt))
+        self.session.expect_exact(self.prompt)
 
-    def exec_command(self, command, timeout=2):
+    def exec_command(self, command, expected=None, timeout=2):
         """
         Execute command on the SSH server.
 
         :param str command: a shell command to execute.
+        :param str command:
+            expected string for the command.
+            Eg:- for command `tail -f ` with `grep` or similar
         :param int timeout:
             set the timeout for the executed command
 
@@ -60,6 +80,10 @@ class Session(object):
         """
         command = r'{}'.format(command)
         self.session.sendline(command)
+        if expected:
+            self.session.expect(expected)
+            #self.session.expect_exact(self.prompt)
+            #else:
         self.session.expect_exact(self.prompt)
         stdout = self.session.before.strip().split('\r\n')
 
